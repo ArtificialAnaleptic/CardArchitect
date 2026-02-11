@@ -1,0 +1,736 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Card Architect v12</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.2/css/all.min.css">
+    <link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@400;700;900&family=IM+Fell+English:ital@0;1&family=Lato:wght@400;700&display=swap" rel="stylesheet">
+    
+    <style>
+        @media print {
+            @page { size: landscape; margin: 0; }
+            body { background-color: white; -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important; }
+            .menu-panel, .editor-panel, .sidebar-toggle-btn { display: none !important; }
+            .app-layout { display: block !important; height: auto !important; }
+            .datacard-container { display: block !important; padding: 0; background: white; height: auto; }
+            .main-card { transform: scale(1); margin: 0; break-inside: avoid; page-break-inside: avoid; float: left; }
+        }
+
+        /* --- Global & UI --- */
+        :root {
+            --bg-dark: #1a1a1a;
+            --panel-bg: #252525;
+            --input-bg: #333;
+            --text-light: #e0e0e0;
+            --accent-blue: #4a90e2;
+            --accent-danger: #d9534f;
+            --card-width: 900px;
+            --card-height: 600px;
+            
+            /* Dynamic Variables */
+            --token-size: 45px;
+            --health-size: 32px;
+        }
+
+        * { box-sizing: border-box; }
+        body { font-family: 'Lato', sans-serif; background-color: var(--bg-dark); color: var(--text-light); margin: 0; height: 100vh; overflow: hidden; }
+
+        .app-layout { display: flex; height: 100vh; }
+        
+        /* Panels */
+        .editor-panel { width: 400px; background-color: var(--panel-bg); border-right: 1px solid #000; display: flex; flex-direction: column; height: 100%; flex-shrink: 0; overflow-y: auto; padding: 20px; }
+        .datacard-container { flex-grow: 1; background-color: #555; display: flex; justify-content: center; align-items: center; overflow: auto; padding: 20px; }
+
+        /* UI Inputs */
+        h2, h3 { margin-top: 0; border-bottom: 1px solid #555; padding-bottom: 10px; font-family: 'Cinzel', serif; }
+        label { display: block; margin-top: 10px; font-size: 0.85rem; color: #aaa; font-weight: bold; }
+        input[type="text"], input[type="number"], input[type="range"], textarea, select {
+            width: 100%; padding: 8px; background-color: var(--input-bg); border: 1px solid #555; color: white; border-radius: 4px; margin-top: 5px;
+        }
+        .btn { width: 100%; padding: 10px; border: none; border-radius: 4px; color: white; cursor: pointer; font-weight: bold; margin-top: 10px; transition: background 0.2s; }
+        .btn-primary { background-color: var(--accent-blue); }
+        .btn-danger { background-color: var(--accent-danger); }
+        .btn:hover { opacity: 0.9; }
+        
+        .row { display: flex; gap: 10px; }
+        .col { flex: 1; }
+        
+        .hidden { display: none; }
+
+        /* Behavior List UI */
+        .behavior-list { list-style: none; padding: 0; margin-top: 10px; }
+        .behavior-item { background: #333; padding: 8px; margin-bottom: 5px; display: flex; justify-content: space-between; align-items: center; border: 1px solid #444; }
+
+        /* --- CARD DESIGN --- */
+        .main-card {
+            width: var(--card-width);
+            height: var(--card-height);
+            background-color: #e3ded1; 
+            background-size: cover;
+            background-position: center;
+            position: relative;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.5);
+            display: grid;
+            grid-template-columns: 35% 45% 20%; 
+            border-radius: 0; /* Hard Edges */
+            color: #111;
+            overflow: hidden; /* CLIPPING ENABLED */
+        }
+
+        /* 1. Left Column: Art */
+        .col-art {
+            position: relative;
+            height: 100%;
+            z-index: 30; 
+        }
+        
+        .character-img {
+            position: absolute;
+            bottom: 0;
+            left: 50%;
+            max-height: none; 
+            width: auto;
+            height: 85%; 
+            filter: drop-shadow(5px 5px 10px rgba(0,0,0,0.6));
+            pointer-events: none; 
+        }
+
+        .card-icon {
+            position: absolute;
+            top: 15px;
+            left: 15px;
+            width: 50px;
+            height: 50px;
+            object-fit: contain;
+            z-index: 40; /* Above Art */
+            filter: drop-shadow(2px 2px 2px rgba(0,0,0,0.5));
+        }
+
+        /* 2. Center Column: Stats & Info */
+        .col-info {
+            padding: 20px 10px;
+            display: flex;
+            flex-direction: column;
+            position: relative;
+            background: rgba(240, 240, 240, 0.9); 
+            box-shadow: -5px 0 15px rgba(0,0,0,0.2), 5px 0 15px rgba(0,0,0,0.2);
+            z-index: 20; 
+        }
+
+        .card-header { 
+            text-align: center; 
+            border-bottom: 2px solid #333; 
+            margin-bottom: 15px; 
+            padding-bottom: 5px;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 50px;
+        }
+        
+        .unit-name { 
+    font-family: 'Cinzel', serif; 
+    font-weight: 900; 
+    text-transform: uppercase; 
+    margin: 0; 
+    letter-spacing: 1px;
+    width: 100%;
+    
+    /* CRITICAL FOR WRAPPING: */
+    line-height: 1;           /* Keeps math simple */
+    white-space: normal;      /* Allows wrapping */
+    overflow-wrap: break-word;/* Breaks long words if needed */
+    display: block; 
+}
+
+        .stats-row { display: flex; justify-content: space-around; align-items: center; margin-bottom: 20px; }
+        .stat-pod { display: flex; flex-direction: column; align-items: center; position: relative; width: 60px; }
+        .stat-label { font-size: 0.7rem; font-weight: 900; text-transform: uppercase; margin-bottom: 2px; font-family: 'Lato', sans-serif; letter-spacing: 1px;}
+        
+        .stat-shape {
+            width: 50px; height: 50px;
+            display: flex; justify-content: center; align-items: center;
+            font-family: 'Cinzel', serif; font-size: 1.8rem; font-weight: bold; color: white;
+            background-size: contain; background-repeat: no-repeat; background-position: center;
+        }
+
+        .shape-hex { background-color: #2c3e50; clip-path: polygon(50% 0%, 100% 25%, 100% 75%, 50% 100%, 0% 75%, 0% 25%); }
+        .shape-shield { background-color: #274e13; clip-path: path('M25 0 L50 10 L50 35 C50 45 25 50 25 50 C25 50 0 45 0 35 L0 10 Z');}
+        .shape-circle { background-color: #8a1c1c; border-radius: 50%; }
+        .shape-pill { background-color: #444; border-radius: 15px; width: 40px !important; }
+
+        .weapon-bar {
+            display: flex; border: 2px solid #333; background: #fff;
+            margin-bottom: 15px; box-shadow: 2px 2px 5px rgba(0,0,0,0.2);
+        }
+        .weapon-icon-box {
+            background: #2c3e50; color: white; width: 50px;
+            display: flex; justify-content: center; align-items: center; font-size: 1.5rem;
+        }
+        .weapon-stat { flex: 1; border-left: 1px solid #333; text-align: center; padding: 5px 0; }
+        .w-label { font-size: 0.6rem; font-weight: 900; display: block; text-transform: uppercase; color: #666; }
+        .w-val { font-size: 1.6rem; font-family: 'Cinzel', serif; font-weight: 700; line-height: 1; }
+
+        .abilities-container { flex-grow: 1; font-family: 'IM Fell English', serif; font-size: 1.1rem; line-height: 1.2; padding: 0 5px; }
+        .ability-block { margin-bottom: 10px; position: relative; }
+        .ability-name { font-weight: bold; text-decoration: underline; font-family: 'Cinzel', serif; }
+        
+        .trigger-icon {
+            display: inline-block; vertical-align: middle; color: #111; font-size: 1.1em;
+            margin-right: 4px; margin-top: -3px; border: 1px solid #111; border-radius: 2px;
+            padding: 1px; line-height: 0;
+        }
+
+        /* DYNAMIC TOKEN CIRCLE STYLE */
+        .token-circle {
+            display: inline-block;
+            width: var(--token-size); 
+            height: var(--token-size);
+            border: 2px dashed #333;
+            border-radius: 50%;
+            margin: 5px 8px;
+            vertical-align: middle;
+            opacity: 0.7;
+        }
+
+        .health-track {
+            margin-top: auto; padding-top: 15px;
+            display: flex; flex-wrap: wrap; justify-content: center; gap: 5px; position: relative;
+        }
+        
+        /* DYNAMIC HEALTH NODE STYLE */
+        .health-node {
+            width: var(--health-size); 
+            height: var(--health-size); 
+            border-radius: 50%;
+            background: #8a1c1c; border: 2px solid #fff; box-shadow: 0 2px 4px rgba(0,0,0,0.3);
+            display: flex; justify-content: center; align-items: center;
+            color: white; font-weight: bold; font-family: 'Cinzel', serif; 
+            font-size: calc(var(--health-size) * 0.5); /* Scales text with circle */
+        }
+        .health-node.skull { background: #111; border-color: #8a1c1c; }
+
+        /* 3. Right Column: Behavior */
+        .col-behavior {
+            padding: 20px 10px;
+            display: flex; flex-direction: column; align-items: center;
+            background: rgba(0,0,0,0.1); 
+            position: relative; 
+            gap: 10px; 
+        }
+
+        .behavior-slot {
+            width: 80px; height: 70px; flex-shrink: 0;
+            background: #e0e0e0; border: 1px solid #999;
+            box-shadow: 2px 2px 5px rgba(0,0,0,0.3); border-radius: 4px;
+            display: flex; justify-content: center; align-items: center;
+            position: relative; z-index: 2;
+            text-align: center;
+            padding: 2px;
+        }
+        
+        .b-icon { font-size: 2.5rem; }
+        .b-black { color: #111; }
+        .b-red { color: #8a1c1c; }
+        .b-action { color: #111; border: 3px solid #111; padding: 2px; border-radius: 4px; font-size: 1.8rem; }
+        
+        .b-text {
+            font-family: 'IM Fell English', serif;
+            font-size: 0.8rem;
+            font-weight: bold;
+            line-height: 1.1;
+            color: #111;
+        }
+
+        .arrow-down {
+            color: white; font-size: 1.8rem; text-shadow: 0 0 3px black;
+            margin: -5px 0; 
+            z-index: 1;
+        }
+
+        /* Dynamic Loop Graphic */
+        .loop-graphic {
+            position: absolute;
+            right: 15px; 
+            top: 55px; 
+            width: 22px; /* Fixed: Reduced from 35px to avoid overlapping text */
+            border-right: 4px solid white;
+            border-top: 4px solid white;
+            border-bottom: 4px solid white;
+            border-radius: 0 15px 15px 0;
+            box-shadow: 2px 0 3px rgba(0,0,0,0.5); 
+            pointer-events: none;
+            z-index: 3;
+            transition: height 0.3s ease, top 0.3s ease;
+        }
+        
+        .loop-arrow-head {
+            position: absolute;
+            top: -14px; 
+            left: -10px; /* Fixed Position */
+            color: white;
+            font-size: 1.5rem;
+            text-shadow: 0 0 3px black;
+        }
+
+    </style>
+</head>
+<body>
+
+<div class="app-layout">
+    <aside class="editor-panel">
+        <h2>Card Architect v12</h2>
+        
+        <h3>Imagery</h3>
+        <label>Card Background</label>
+        <input type="file" id="bgUpload" accept="image/*">
+        
+        <label>Character Art (Layered Above)</label>
+        <input type="file" id="charUpload" accept="image/*">
+        
+        <div class="row" style="margin-top:5px;">
+            <div class="col"><button class="btn btn-primary" id="artUp"><i class="fas fa-arrow-up"></i></button></div>
+            <div class="col"><button class="btn btn-primary" id="artDown"><i class="fas fa-arrow-down"></i></button></div>
+            <div class="col"><button class="btn btn-primary" id="artZoomIn"><i class="fas fa-search-plus"></i></button></div>
+        </div>
+        <div class="row">
+            <div class="col"><button class="btn btn-primary" id="artLeft"><i class="fas fa-arrow-left"></i></button></div>
+            <div class="col"><button class="btn btn-primary" id="artRight"><i class="fas fa-arrow-right"></i></button></div>
+            <div class="col"><button class="btn btn-primary" id="artZoomOut"><i class="fas fa-search-minus"></i></button></div>
+        </div>
+        
+        <label>Icon (Top Left)</label>
+        <input type="file" id="iconUpload" accept="image/*">
+
+        <h3>Core Stats</h3>
+        <label>Unit Name</label>
+        <input type="text" id="unitName" value="Bad Enemy">
+        
+        <label>Name Size (Max)</label>
+        <input type="range" id="nameSizeRange" min="1.5" max="3.5" step="0.1" value="2.2">
+        
+        <div class="row">
+            <div class="col"><label>Move</label><input type="number" id="statMove" value="2"></div>
+            <div class="col"><label>Def</label><input type="number" id="statDef" value="0"></div>
+            <div class="col"><label>Health</label><input type="number" id="statHealth" value="1" min="-1" max="20"></div>
+            <div class="col"><label>Group</label><input type="number" id="statGroup" value="3"></div>
+        </div>
+        
+        <label>Health Icon Size</label>
+        <input type="range" id="healthSizeRange" min="20" max="50" value="32">
+
+        <h3>Weapon Profile</h3>
+        <div class="row">
+            <div class="col"><label>Range</label><input type="text" id="wRange" value="2"></div>
+            <div class="col"><label>Dice</label><input type="text" id="wDice" value="1"></div>
+            <div class="col"><label>Hit</label><input type="text" id="wHit" value="4+"></div>
+            <div class="col"><label>Crit</label><input type="text" id="wCrit" value="6+"></div>
+        </div>
+        <label>Weapon Icon</label>
+        <select id="wIcon">
+            <option value="fa-gavel">Melee (Axe/Hammer)</option>
+            <option value="fa-crosshairs">Ranged (Crosshair)</option>
+            <option value="fa-skull">Magic (Skull)</option>
+            <option value="fa-paw">Beast (Claw)</option>
+        </select>
+
+        <h3>Abilities</h3>
+        <label>Text Size</label>
+        <input type="range" id="textSizeRange" min="0.7" max="1.5" step="0.1" value="1.1">
+        
+        <div id="tokenSizeContainer" class="hidden">
+            <label style="color:var(--accent-blue);">[O] Token Size</label>
+            <input type="range" id="tokenSizeRange" min="30" max="80" value="45">
+        </div>
+
+        <label>Content</label>
+        <p style="font-size:0.8rem; margin:0; color:#888;">Use [action] for trigger icon. Use [O] for circle token slot.</p>
+        <textarea id="abilitiesInput" rows="6" placeholder="[action] Ability Name: Description...">[action] VOLATILE DETONATION: If a hero's attack scores any critical hits on this enemy, inflict 1 damage on each hero next to this enemy.
+
+[O] [O]</textarea>
+
+        <h3>Behavior Loop (Max 6)</h3>
+        <div class="row">
+            <select id="behaviorType">
+                <option value="black">Black Die</option>
+                <option value="red">Red Die</option>
+                <option value="action">Action</option>
+                <option value="text">Free Text</option>
+            </select>
+            <button class="btn btn-primary" id="addBehaviorBtn" style="margin-top:5px; width: 60px;">Add</button>
+        </div>
+        <input type="text" id="behaviorTextInput" class="hidden" placeholder="Enter text (e.g. 'Advance')..." style="margin-top:5px; border-color: var(--accent-blue);">
+        
+        <ul id="behaviorList" class="behavior-list"></ul>
+
+        <button class="btn btn-primary" onclick="window.print()" style="margin-top: auto;">Print Card</button>
+    </aside>
+
+    <main class="datacard-container">
+        
+        <div class="main-card" id="cardElement">
+            
+            <img id="iconDisplay" class="card-icon" src="" alt="" style="display:none;">
+
+            <div class="col-art">
+                <img src="" class="character-img" id="charImgDisplay" alt="">
+            </div>
+
+            <div class="col-info">
+                <div class="card-header">
+                    <h1 class="unit-name" id="displayUnitName">Bad Enemy</h1>
+                </div>
+
+                <div class="stats-row">
+                    <div class="stat-pod">
+                        <div class="stat-label">Move</div>
+                        <div class="stat-shape shape-hex"><span id="displayMove">2</span></div>
+                    </div>
+                    <div class="stat-pod">
+                        <div class="stat-label">Defence</div>
+                        <div class="stat-shape shape-shield"><span id="displayDef">0</span></div>
+                    </div>
+                    <div class="stat-pod">
+                        <div class="stat-label">Health</div>
+                        <div class="stat-shape shape-circle"><span id="displayHealth">1</span></div>
+                    </div>
+                    <div class="stat-pod">
+                        <div class="stat-label">Group</div>
+                        <div class="stat-shape shape-pill"><span id="displayGroup">3</span></div>
+                    </div>
+                </div>
+
+                <div class="weapon-bar">
+                    <div class="weapon-icon-box"><i class="fas fa-gavel" id="displayWIcon"></i></div>
+                    <div class="weapon-stat"><span class="w-label">Range</span><span class="w-val" id="displayWRange">2</span></div>
+                    <div class="weapon-stat"><span class="w-label">Dice</span><span class="w-val" id="displayWDice">1</span></div>
+                    <div class="weapon-stat"><span class="w-label">Hit</span><span class="w-val" id="displayWHit">4+</span></div>
+                    <div class="weapon-stat"><span class="w-label">Crit</span><span class="w-val" id="displayWCrit">6+</span></div>
+                </div>
+
+                <div class="abilities-container" id="displayAbilities">
+                    </div>
+
+                <div class="health-track" id="displayHealthTrack">
+                    </div>
+            </div>
+
+            <div class="col-behavior" id="displayBehavior">
+                </div>
+
+        </div>
+
+    </main>
+</div>
+
+<script>
+    /* --- LOGIC --- */
+
+    // State
+    const behaviorQueue = [];
+    const charState = { x: 50, y: 0, scale: 1 };
+
+    // Selectors
+    const cardElement = document.getElementById('cardElement');
+    const bgUpload = document.getElementById('bgUpload');
+    const charUpload = document.getElementById('charUpload');
+    const iconUpload = document.getElementById('iconUpload');
+    const charImgDisplay = document.getElementById('charImgDisplay');
+    const iconDisplay = document.getElementById('iconDisplay');
+    
+    const textSizeRange = document.getElementById('textSizeRange');
+    const tokenSizeRange = document.getElementById('tokenSizeRange');
+    const tokenSizeContainer = document.getElementById('tokenSizeContainer');
+    const healthSizeRange = document.getElementById('healthSizeRange');
+    const nameSizeRange = document.getElementById('nameSizeRange');
+    
+    // Inputs
+    const inputs = {
+        name: document.getElementById('unitName'),
+        move: document.getElementById('statMove'),
+        def: document.getElementById('statDef'),
+        health: document.getElementById('statHealth'),
+        group: document.getElementById('statGroup'),
+        wRange: document.getElementById('wRange'),
+        wDice: document.getElementById('wDice'),
+        wHit: document.getElementById('wHit'),
+        wCrit: document.getElementById('wCrit'),
+        wIcon: document.getElementById('wIcon'),
+        abilities: document.getElementById('abilitiesInput')
+    };
+
+    // Displays
+    const displays = {
+        name: document.getElementById('displayUnitName'),
+        move: document.getElementById('displayMove'),
+        def: document.getElementById('displayDef'),
+        health: document.getElementById('displayHealth'),
+        group: document.getElementById('displayGroup'),
+        wRange: document.getElementById('displayWRange'),
+        wDice: document.getElementById('displayWDice'),
+        wHit: document.getElementById('displayWHit'),
+        wCrit: document.getElementById('displayWCrit'),
+        wIcon: document.getElementById('displayWIcon'),
+        abilities: document.getElementById('displayAbilities'),
+        healthTrack: document.getElementById('displayHealthTrack'),
+        behavior: document.getElementById('displayBehavior')
+    };
+
+    // --- 1. Image Handling ---
+
+    bgUpload.addEventListener('change', (e) => {
+        const file = e.target.files[0];
+        if(file) {
+            const reader = new FileReader();
+            reader.onload = (ev) => {
+                cardElement.style.backgroundImage = `url('${ev.target.result}')`;
+            }
+            reader.readAsDataURL(file);
+        }
+    });
+
+    charUpload.addEventListener('change', (e) => {
+        const file = e.target.files[0];
+        if(file) {
+            const reader = new FileReader();
+            reader.onload = (ev) => {
+                charImgDisplay.src = ev.target.result;
+            }
+            reader.readAsDataURL(file);
+        }
+    });
+
+    iconUpload.addEventListener('change', (e) => {
+        const file = e.target.files[0];
+        if(file) {
+            const reader = new FileReader();
+            reader.onload = (ev) => {
+                iconDisplay.src = ev.target.result;
+                iconDisplay.style.display = 'block';
+            }
+            reader.readAsDataURL(file);
+        }
+    });
+
+    function updateCharTransform() {
+        charImgDisplay.style.left = `${charState.x}%`;
+        charImgDisplay.style.bottom = `${charState.y}px`;
+        charImgDisplay.style.transform = `translateX(-50%) scale(${charState.scale})`;
+    }
+
+    // Finer Controls: 2.5% move, 0.05 zoom
+    document.getElementById('artLeft').addEventListener('click', () => { charState.x -= 2.5; updateCharTransform(); });
+    document.getElementById('artRight').addEventListener('click', () => { charState.x += 2.5; updateCharTransform(); });
+    document.getElementById('artUp').addEventListener('click', () => { charState.y += 10; updateCharTransform(); });
+    document.getElementById('artDown').addEventListener('click', () => { charState.y -= 10; updateCharTransform(); });
+    document.getElementById('artZoomIn').addEventListener('click', () => { charState.scale += 0.05; updateCharTransform(); });
+    document.getElementById('artZoomOut').addEventListener('click', () => { charState.scale -= 0.05; updateCharTransform(); });
+
+
+    // --- 2. Text & Stats Updates ---
+
+    // Sliders
+    textSizeRange.addEventListener('input', (e) => {
+        displays.abilities.style.fontSize = `${e.target.value}rem`;
+    });
+    
+    tokenSizeRange.addEventListener('input', (e) => {
+        document.documentElement.style.setProperty('--token-size', `${e.target.value}px`);
+    });
+
+    healthSizeRange.addEventListener('input', (e) => {
+        document.documentElement.style.setProperty('--health-size', `${e.target.value}px`);
+    });
+
+    nameSizeRange.addEventListener('input', updateCard);
+
+    function updateCard() {
+        displays.name.textContent = inputs.name.value;
+        
+        // --- NAME RESIZING LOGIC (FIXED v2) ---
+        // 1. Reset to slider value explicitly
+        let currentSize = parseFloat(nameSizeRange.value);
+        displays.name.style.fontSize = `${currentSize}rem`;
+        displays.name.style.lineHeight = "1"; // Force line-height for accurate math
+
+        // 2. Shrink loop
+        while (currentSize > 0.5) {
+            const fontSizePx = parseFloat(window.getComputedStyle(displays.name).fontSize);
+            
+            // THRESHOLD: We want to prevent a 3rd line.
+            // 2 lines = ~2.0x font size. 3 lines = ~3.0x font size.
+            // We set the limit at 2.5x. Anything taller means we have hit a 3rd line.
+            const isTooTall = displays.name.scrollHeight > (fontSizePx * 2.5);
+
+            // WIDTH CHECK: Only triggers if a SINGLE word is wider than the box
+            // (Standard sentences will wrap before hitting this, avoiding the trigger)
+            const isTooWide = displays.name.scrollWidth > displays.name.clientWidth;
+
+            if (isTooTall || isTooWide) {
+                currentSize -= 0.1;
+                displays.name.style.fontSize = `${currentSize}rem`;
+            } else {
+                break; // It fits our constraints
+            }
+        }
+
+        displays.move.textContent = inputs.move.value;
+        displays.def.textContent = inputs.def.value;
+        displays.group.textContent = inputs.group.value;
+        
+        // Health Logic
+        const hpInput = parseInt(inputs.health.value);
+        displays.health.textContent = (hpInput <= 0) ? 1 : hpInput;
+
+        let trackHtml = '';
+        if (hpInput === -1) {
+            trackHtml = '';
+        } else if (hpInput === 0) {
+            trackHtml = `<div class="health-node skull"><i class="fas fa-skull"></i></div>`;
+        } else {
+            // REVERSED LOOP: Start at max health, count down to 1
+            for(let i = hpInput; i >= 1; i--) {
+                trackHtml += `<div class="health-node">${i}</div>`;
+            }
+            trackHtml += `<div class="health-node skull"><i class="fas fa-skull"></i></div>`;
+        }
+        displays.healthTrack.innerHTML = trackHtml;
+
+        displays.wRange.textContent = inputs.wRange.value;
+        displays.wDice.textContent = inputs.wDice.value;
+        displays.wHit.textContent = inputs.wHit.value;
+        displays.wCrit.textContent = inputs.wCrit.value;
+        displays.wIcon.className = `fas ${inputs.wIcon.value}`;
+
+        // Abilities Parser
+        const text = inputs.abilities.value;
+        if(text.includes('[O]')) {
+            tokenSizeContainer.classList.remove('hidden');
+        } else {
+            tokenSizeContainer.classList.add('hidden');
+        }
+
+        const lines = text.split('\n');
+        let html = '';
+        lines.forEach(line => {
+            if(line.trim() === '') return;
+            let fLine = line;
+            fLine = fLine.replace(/\[action\]/gi, '<span class="trigger-icon"><i class="fas fa-square-full"></i></span>');
+            fLine = fLine.replace(/\[O\]/g, '<div class="token-circle"></div>');
+            fLine = fLine.replace(/<b>(.*?)<\/b>/g, '<span class="ability-name">$1</span>');
+            const isOnlyTokens = /^\s*(<div class="token-circle"><\/div>\s*)+$/.test(fLine);
+            const style = isOnlyTokens ? 'text-align:center;' : '';
+            html += `<div class="ability-block" style="${style}">${fLine}</div>`;
+        });
+        displays.abilities.innerHTML = html;
+    }
+
+    // Attach listeners
+    Object.values(inputs).forEach(inp => inp.addEventListener('input', updateCard));
+    updateCard(); // Init
+
+
+    // --- 3. Behavior Column Logic ---
+
+    const behaviorListEl = document.getElementById('behaviorList');
+    const addBehaviorBtn = document.getElementById('addBehaviorBtn');
+    const behaviorTypeSelect = document.getElementById('behaviorType');
+    const behaviorTextInput = document.getElementById('behaviorTextInput');
+
+    behaviorTypeSelect.addEventListener('change', () => {
+        if(behaviorTypeSelect.value === 'text') {
+            behaviorTextInput.classList.remove('hidden');
+        } else {
+            behaviorTextInput.classList.add('hidden');
+        }
+    });
+
+    addBehaviorBtn.addEventListener('click', () => {
+        if(behaviorQueue.length >= 6) { alert("Max 6 behavior slots allowed."); return; }
+        
+        const type = behaviorTypeSelect.value;
+        const data = { type: type, text: '' };
+        
+        if(type === 'text') {
+            if(behaviorTextInput.value.trim() === '') {
+                alert("Please enter text for the slot.");
+                return;
+            }
+            data.text = behaviorTextInput.value;
+            behaviorTextInput.value = '';
+        }
+
+        behaviorQueue.push(data);
+        renderBehaviorList();
+        renderBehaviorCard();
+    });
+
+    function removeBehavior(index) {
+        behaviorQueue.splice(index, 1);
+        renderBehaviorList();
+        renderBehaviorCard();
+    }
+
+    function renderBehaviorList() {
+        behaviorListEl.innerHTML = '';
+        behaviorQueue.forEach((item, index) => {
+            const li = document.createElement('li');
+            li.className = 'behavior-item';
+            let label = item.type.charAt(0).toUpperCase() + item.type.slice(1);
+            if(item.type === 'text') label = `Text: "${item.text.substring(0, 10)}..."`;
+            li.innerHTML = `<span>${label}</span> <button class="btn btn-danger" style="width:auto; margin:0; padding: 2px 5px;" onclick="removeBehavior(${index})">X</button>`;
+            behaviorListEl.appendChild(li);
+        });
+    }
+
+    function renderBehaviorCard() {
+        const container = displays.behavior;
+        container.innerHTML = '';
+        
+        behaviorQueue.forEach((item, index) => {
+            if(index > 0 && behaviorQueue.length > 1) {
+                const arrow = document.createElement('div');
+                arrow.className = 'arrow-down';
+                arrow.innerHTML = '<i class="fas fa-arrow-down"></i>';
+                container.appendChild(arrow);
+            }
+
+            const slot = document.createElement('div');
+            slot.className = 'behavior-slot';
+            
+            let htmlContent = '';
+            if(item.type === 'black') htmlContent = '<i class="fas fa-dice-d20 b-icon b-black"></i>';
+            else if(item.type === 'red') htmlContent = '<i class="fas fa-dice-d20 b-icon b-red"></i>';
+            else if(item.type === 'action') htmlContent = '<i class="fas fa-stop b-icon b-action"></i>';
+            else if(item.type === 'text') htmlContent = `<div class="b-text">${item.text}</div>`;
+            
+            slot.innerHTML = htmlContent;
+            container.appendChild(slot);
+        });
+
+        if(behaviorQueue.length > 1) {
+            const loopGraphic = document.createElement('div');
+            loopGraphic.className = 'loop-graphic';
+            loopGraphic.innerHTML = '<div class="loop-arrow-head"><i class="fas fa-caret-left"></i></div>';
+            container.appendChild(loopGraphic);
+
+            setTimeout(() => {
+                const slots = container.querySelectorAll('.behavior-slot');
+                if(slots.length > 1) {
+                    const first = slots[0];
+                    const last = slots[slots.length - 1];
+                    const containerTop = container.getBoundingClientRect().top;
+                    const firstCenter = first.getBoundingClientRect().top - containerTop + (first.offsetHeight / 2);
+                    const lastCenter = last.getBoundingClientRect().top - containerTop + (last.offsetHeight / 2);
+                    const height = lastCenter - firstCenter;
+                    loopGraphic.style.top = `${firstCenter}px`;
+                    loopGraphic.style.height = `${height}px`;
+                }
+            }, 50);
+        }
+    }
+
+</script>
+</body>
+</html>
