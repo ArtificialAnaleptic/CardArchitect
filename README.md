@@ -1,5 +1,7 @@
 # Card Architect v12
 
+## Note: there appears to be an issue rendering the page in BRAVE BROWSER. Don't use brave to access the site.
+
 <img width="800" alt="image" src="https://github.com/user-attachments/assets/44153ff7-9f96-4761-8793-a74da61a05b9" />
 
 **Card Architect v12** is a standalone, single-file web application designed for creating, editing, and printing high-fidelity tabletop RPG unit cards. It features a dual-pane layout with a real-time editor sidebar and a live preview canvas. I have not developed this much further because there wasn't much interest and I already have the cards made that I need. But maybe others would like to adapt it to their own needs so I'm putting it up here.
